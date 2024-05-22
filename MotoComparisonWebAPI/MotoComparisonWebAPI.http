@@ -1,0 +1,6 @@
+@MotoComparisonWebAPI_HostAddress = http://localhost:5131
+
+POST {{MotoComparisonWebAPI_HostAddress}}/FetchData/
+Accept: application/json
+
+###
