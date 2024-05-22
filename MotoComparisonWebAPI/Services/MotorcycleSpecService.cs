@@ -26,22 +26,8 @@ namespace MotoComparisonWebAPI.Services
 
         public async Task FetchAndStoreData()
         {
-            var manufacturers = await ScrapeManufacturers();
-            foreach (var manufacturer in manufacturers)
-            {
-                var manufacturerEntity = _context.Manufacturers.FirstOrDefault(m => m.Url == manufacturer.Value);
-                if (manufacturerEntity == null)
-                {
-                    manufacturerEntity = new Manufacturer
-                    {
-                        Name = manufacturer.Key,
-                        Url = manufacturer.Value
-                    };
-                    _context.Manufacturers.Add(manufacturerEntity);
-                }               
-            }
+            List<KeyValuePair<string, string>> manufacturers = await FetchAndSaveManufacturers();
 
-            await _context.SaveChangesAsync();
 
 
             foreach (var manufacturer in manufacturers)
@@ -57,7 +43,7 @@ namespace MotoComparisonWebAPI.Services
                         var manufacturerEntity = _context.Manufacturers.FirstOrDefault(m => m.Url == manufacturer.Value);
 
 
-                        if(manufacturerEntity == null)
+                        if (manufacturerEntity == null)
                         {
                             continue;
                         }
@@ -88,8 +74,90 @@ namespace MotoComparisonWebAPI.Services
                     await _context.SaveChangesAsync();
                 }
             }
-                
 
+
+        }
+
+
+        public async Task FetchDataForModels()
+        {
+            List<KeyValuePair<string, string>> manufacturers = await FetchAndSaveManufacturers();
+
+            foreach (var manufacturer in manufacturers)
+            {
+                await FetchAndSaveModelsForManufacturer(manufacturer);
+            }
+
+        }
+
+
+        private async Task<List<KeyValuePair<string, string>>> FetchAndSaveManufacturers()
+        {
+            var manufacturers = await ScrapeManufacturers();
+            foreach (var manufacturer in manufacturers)
+            {
+                var manufacturerEntity = _context.Manufacturers.FirstOrDefault(m => m.Url == manufacturer.Value);
+                if (manufacturerEntity == null)
+                {
+                    manufacturerEntity = new Manufacturer
+                    {
+                        Name = manufacturer.Key,
+                        Url = manufacturer.Value
+                    };
+                    _context.Manufacturers.Add(manufacturerEntity);
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+
+            return manufacturers;
+        }
+
+
+        public async Task FetchAndStoreDataByManufacturer(string manufacturerStr)
+        {
+            var manufacturerEntity = _context.Manufacturers.FirstOrDefault(m => m.Name == manufacturerStr);
+
+            if (manufacturerEntity == null)
+            {
+                return;
+            }
+
+
+            FetchAndSaveModelsForManufacturer(new KeyValuePair<string, string> { Key = manufacturerEntity.Name, Value = manufacturerEntity.Url });
+        }
+
+
+        private async Task FetchAndSaveModelsForManufacturer(KeyValuePair<string, string> manufacturer)
+        {
+            var models = await ScrapeModels(manufacturer.Value);
+            foreach (var model in models)
+            {
+                var modelEntity = _context.Models.FirstOrDefault(m => m.Url == model.Value);
+
+
+                if (modelEntity == null)
+                {
+                    var manufacturerEntity = _context.Manufacturers.FirstOrDefault(m => m.Url == manufacturer.Value);
+
+
+                    if (manufacturerEntity == null)
+                    {
+                        continue;
+                    }
+
+                    modelEntity = new Model
+                    {
+                        Name = model.Key,
+                        Url = model.Value,
+                        Manufacturer = manufacturerEntity
+                    };
+                    _context.Models.Add(modelEntity);
+                }
+
+                await _context.SaveChangesAsync();
+            }
         }
 
         public async Task<List<KeyValuePair<string, string>>> ScrapeManufacturers()
@@ -228,52 +296,6 @@ namespace MotoComparisonWebAPI.Services
             }
 
             return specs;
-        }
-
-        public async Task FetchAndStoreDataByManufacturer(string manufacturerStr)
-        {
-            var manufacturerEntity = _context.Manufacturers.FirstOrDefault(m => m.Name == manufacturerStr);
-
-            if (manufacturerEntity == null)
-            {
-                return;
-            }
-
-
-            var models = await ScrapeModels(manufacturerEntity.Url);
-            foreach (var model in models)
-            {
-                var modelEntity = _context.Models.FirstOrDefault(m => m.Url == model.Value);
-
-
-                if (modelEntity == null)
-                {
-
-                    modelEntity = new Model
-                    {
-                        Name = model.Key,
-                        Url = model.Value,
-                        Manufacturer = manufacturerEntity
-                    };
-                    _context.Models.Add(modelEntity);
-                }
-
-                var specs = await ScrapeMotorcycleSpecs(model.Value);
-                foreach (var spec in specs)
-                {
-                    if (!_context.Specifications.Any(s => s.Key == spec.Key && s.ModelId == modelEntity.Id))
-                    {
-                        _context.Specifications.Add(new Specification
-                        {
-                            Key = spec.Key,
-                            Value = spec.Value,
-                            Model = modelEntity
-                        });
-                    }
-                }
-
-                await _context.SaveChangesAsync();
-            }
         }
 
         private string CleanText(string input)

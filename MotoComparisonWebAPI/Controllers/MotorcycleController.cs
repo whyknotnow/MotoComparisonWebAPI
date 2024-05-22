@@ -38,6 +38,14 @@ namespace MotoComparisonWebAPI.Controllers
             return Ok($"Data fetch for {manufacturer} triggered successfully.");
         }
 
+        [HttpPost("FetchDataForModels")]
+        public async Task<IActionResult> FetchDataForModels()
+        {
+
+            await _motorcycleSpecService.FetchDataForModels();
+            return Ok($"Data fetch for models triggered successfully.");
+        }
+
     }
 
 }
